@@ -1,0 +1,47 @@
+---
+- name: Gitlab
+  hosts: app
+  become: true
+  tasks:
+    - name: Create dirs for gitlab
+      file:
+          path: "{{ item }}"
+          state: directory
+          owner: root
+          group: root
+          mode: 0775
+      loop:
+        - /srv/gitlab/config:/etc/gitlab
+        - /srv/gitlab/logs:/var/log/gitlab
+        - /srv/gitlab/data:/var/opt/gitlab
+
+    - name: Run gitlab in docker
+      community.docker.docker_container:
+        name: gitlab
+        image: gitlab/gitlab-ce:latest
+        state: started
+        restart: yes
+        ports:
+          - "80:80"
+          - "443:443"
+          - "2222:22"
+        volumes:
+          - /srv/gitlab/config:/etc/gitlab
+          - /srv/gitlab/logs:/var/log/gitlab
+          - /srv/gitlab/data:/var/opt/gitlab
+        env:
+          GITLAB_OMNIBUS_CONFIG: |
+            external_url 'http://{{ groups['app'].0 }}'
+
+#Повторный запуск падает, переделать.
+    - name: Register runner
+      community.general.gitlab_runner:
+        api_url: "http://{{ groups['app'].0 }}"
+        api_token: H-uAqxUag-GPEc1fZk2S
+        registration_token: 4xfxcDfW_DhN_28L7n5D
+        description: Docker Machine t1
+        state: absent
+        active: True
+        tag_list: ['docker']
+        run_untagged: False
+        locked: False
